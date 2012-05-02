@@ -24,6 +24,8 @@ gem 'jquery-rails'
 
 gem 'mechanize'
 
+gem 'twitter'
+
 group :development do
   gem 'ruby-prof'
   gem 'ruby-debug19', :require => 'ruby-debug'    
