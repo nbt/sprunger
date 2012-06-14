@@ -10,6 +10,10 @@ module Fact
       r.first
     end
 
+    def self.to_id(obj)
+      obj.instance_of?(Fixnum) ? obj : self.intern(obj).id
+    end
+
   end
 
 end

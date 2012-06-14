@@ -37,4 +37,27 @@ describe Fact::Symbol do
 
   end
 
+  describe 'to_id' do
+
+    it 'should return fixnum for fixnum arg' do
+      Fact::Symbol.to_id(333).should == 333
+    end
+
+    it 'should return id for existing symbol given a symbol' do
+      symbol = Fact::Symbol.intern("fred")
+      Fact::Symbol.to_id(symbol).should == symbol.id
+    end
+
+    it 'should return id for existing symbol given a string' do
+      symbol = Fact::Symbol.intern("fred")
+      Fact::Symbol.to_id("fred").should == symbol.id
+    end
+
+    it 'should return an id for a new symbol given a string' do
+      Fact::Symbol.to_id("greg").should be_kind_of(Fixnum)
+    end
+
+  end
+
+
 end

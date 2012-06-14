@@ -11,7 +11,16 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120327183639) do
+ActiveRecord::Schema.define(:version => 20120611162740) do
+
+  create_table "checkpoints", :force => true do |t|
+    t.string   "name"
+    t.string   "state"
+    t.datetime "created_at", :null => false
+    t.datetime "updated_at", :null => false
+  end
+
+  add_index "checkpoints", ["name"], :name => "index_checkpoints_on_name", :unique => true
 
   create_table "fact_statements", :force => true do |t|
     t.integer "subject_id"
@@ -26,6 +35,6 @@ ActiveRecord::Schema.define(:version => 20120327183639) do
     t.string "name"
   end
 
-  add_index "fact_symbols", ["name"], :name => "index_fact_symbols_on_name"
+  add_index "fact_symbols", ["name"], :name => "index_fact_symbols_on_name", :unique => true
 
 end

@@ -3,6 +3,6 @@ class CreateSymbols < ActiveRecord::Migration
     create_table :fact_symbols do |t|
       t.string :name
     end
-    add_index :fact_symbols, :name
+    add_index :fact_symbols, :name, :unique => true
   end
 end
