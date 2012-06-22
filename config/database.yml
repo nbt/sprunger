@@ -13,12 +13,28 @@
 # gem 'pg'
 #
 development:
+<% if (ENV["RAILS_DB"] == "SQLite") %>
+  adapter: sqlite3
+  database: db/development.sqlite3
+  pool: 5
+  timeout: 5000
+<% elsif (ENV["RAILS_DB"] == "MySQL") %>
+  adapter: mysql2
+  encoding: utf8
+  reconnect: false
+  database: sprunger_development
+  pool: 5
+  username: <%= ENV['MYSQL_USERNAME'] || 'root' %>
+  password: <%= ENV['MYSQL_PASSWORD'] || '' %>
+  socket: <%= ENV['MYSQL_SOCKET'] || '/tmp/mysql.sock' %>
+<% else %>
   adapter: postgresql
   encoding: unicode
   database: sprunger_development
   pool: 5
   username: <%= ENV['POSTGRESQL_USERNAME'] || 'root' %>
   password: <%= ENV['POSTGRESQL_PASSWORD'] || '' %>
+<% end %>
 
   # Connect on a TCP socket. Omitted by default since the client uses a
   # domain socket that doesn't need configuration. Windows does not have
@@ -39,12 +55,28 @@ development:
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
 test:
+<% if (ENV["RAILS_DB"] == "SQLite") %>
+  adapter: sqlite3
+  database: db/test.sqlite3
+  pool: 5
+  timeout: 5000
+<% elsif (ENV["RAILS_DB"] == "MySQL") %>
+  adapter: mysql2
+  encoding: utf8
+  reconnect: false
+  database: sprunger_test
+  pool: 5
+  username: <%= ENV['MYSQL_USERNAME'] || 'root' %>
+  password: <%= ENV['MYSQL_PASSWORD'] || '' %>
+  socket: <%= ENV['MYSQL_SOCKET'] || '/tmp/mysql.sock' %>
+<% else %>
   adapter: postgresql
   encoding: unicode
   database: sprunger_test
   pool: 5
   username: <%= ENV['POSTGRESQL_USERNAME'] || 'root' %>
   password: <%= ENV['POSTGRESQL_PASSWORD'] || '' %>
+<% end %>
 
 production:
   adapter: postgresql

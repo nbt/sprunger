@@ -27,12 +27,20 @@ module Fact
     end
 
     def to_s
-      "#<#{self.class.name}##{self.id} '#{subject.name}' #{predicate.name} '#{target.name}' (ref: #{context.name})>"
+      "#<#{self.class.name}##{self.id} '#{subject.try(:name)}' #{predicate.try(:name)} '#{target.try(:name)}' (ref: #{context.try(:name)})>"
     end
 
     def self.create_tuples(subjects, predicates, targets, contexts)
+      tuples = build_tuples(subjects, predicates, targets, contexts)
       Fact::Statement.transaction do
-        build_tuples(subjects, predicates, targets, contexts).map(&:save)
+        # Silliness: we've created full active records but use them
+        # only for their fields.  This should be vectorized.
+        tuples.each do |t| 
+          self.where(:subject_id => t.subject_id,
+                     :predicate_id => t.predicate_id,
+                     :target_id => t.target_id,
+                     :context_id => t.context_id).first_or_create!
+        end
       end
     end
 

@@ -2,11 +2,11 @@ module WithRetries
   extend self
   
   WITH_RETRIES_DEFAULT_OPTIONS = {
-    :ignore => nil,
-    :retry => nil,
+    :ignore => [],
+    :retry => [],
     :max_retries => 3,
     :delay_exponent => 3.0,
-    :verbose => false
+    :verbose => true
   }
 
   def with_retries(options = {}, &block)
@@ -14,7 +14,7 @@ module WithRetries
     retries = 0
     while true do
       begin
-        return yield
+         return yield
       rescue *options[:ignore] => e
         $stderr.puts("=== ignoring #{e.class}: #{e.message}") if options[:verbose]
         return

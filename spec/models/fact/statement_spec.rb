@@ -84,6 +84,20 @@ describe Fact::Symbol do
       a.context.name.should == 'c1'
     end
 
+    it 'should create tuples from singleton symbols' do
+      lambda { Fact::Statement.create_tuples(["s0", "s1"], "p", "t", "c") }.should change(Fact::Statement, :count).by(2)
+      a = Fact::Statement.first
+      a.subject.name.should == 's0'
+      a.predicate.name.should == 'p'
+      a.target.name.should == 't'
+      a.context.name.should == 'c'
+      a = Fact::Statement.last
+      a.subject.name.should == 's1'
+      a.predicate.name.should == 'p'
+      a.target.name.should == 't'
+      a.context.name.should == 'c'
+    end
+
   end
 
 end

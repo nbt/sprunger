@@ -11,7 +11,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120611162740) do
+ActiveRecord::Schema.define(:version => 20120615214705) do
 
   create_table "checkpoints", :force => true do |t|
     t.string   "name"
@@ -21,6 +21,31 @@ ActiveRecord::Schema.define(:version => 20120611162740) do
   end
 
   add_index "checkpoints", ["name"], :name => "index_checkpoints_on_name", :unique => true
+
+  create_table "delayed_jobs", :force => true do |t|
+    t.integer  "priority",   :default => 0
+    t.integer  "attempts",   :default => 0
+    t.text     "handler"
+    t.text     "last_error"
+    t.datetime "run_at"
+    t.datetime "locked_at"
+    t.datetime "failed_at"
+    t.string   "locked_by"
+    t.string   "queue"
+    t.datetime "created_at",                :null => false
+    t.datetime "updated_at",                :null => false
+  end
+
+  add_index "delayed_jobs", ["priority", "run_at"], :name => "delayed_jobs_priority"
+
+  create_table "etl_twitter_processors", :force => true do |t|
+    t.string   "client_options"
+    t.datetime "rate_limit_updated_at"
+    t.datetime "rate_limit_will_reset_at"
+    t.integer  "rate_limit_hit_limit"
+    t.integer  "rate_limit_hit_count"
+    t.integer  "requestor"
+  end
 
   create_table "fact_statements", :force => true do |t|
     t.integer "subject_id"

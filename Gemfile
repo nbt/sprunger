@@ -5,8 +5,21 @@ gem 'rails', '3.2.1'
 # Bundle edge Rails instead:
 # gem 'rails', :git => 'git://github.com/rails/rails.git'
 
-gem 'pg'
+case ENV["RAILS_DB"]
+when "SQLite"
+  gem 'sqlite3'
+  gem 'sqlite-ruby', :require => 'sqlite3'
+when 'MySQL'
+  gem 'mysql2'
+  gem 'activerecord-mysql2-adapter'
+when 'PostgreSQL'
+  gem 'pg'   # , '0.10.0'
+else
+  gem 'pg'   # , '0.10.0'
+end
 
+gem 'delayed_job_active_record'
+gem 'daemons'
 
 # Gems used only for assets and not required
 # in production environments by default.
