@@ -21,6 +21,18 @@ module ETL
       Rails.logger.debug(msg)
     end
 
+    # mini-benchmark: prints message with timing around
+    # the given body.
+    def self.with_logging(msg)
+      t0 = Time.now
+      $stderr.printf("=== %s...", msg)
+      result = yield
+      dt = Time.now - t0
+      $stderr.printf("[%0.3f s]\n", dt)
+      Rails.logger.debug(sprintf("=== %s...[%0.3f s]", msg, dt))
+      result
+    end
+
     # Find a twitter processor that not currently in use and has the
     # most favorable rate limiting.  Will block if no processors are
     # available.  +requestor+ is assumed to be a unique among all the
@@ -49,41 +61,45 @@ module ETL
     end
 
     def load_followers_of(twitter_id, cursor = -1)
-      self.class.blather("#{__method__}(#{twitter_id}, #{cursor})")
       response = with_enhanced_calm do
         with_retries(:retry => RETRIED_NETWORK_ERRORS, :ignore => IGNORED_NETWORK_ERRORS) do
-          twitter_client.follower_ids(twitter_id.to_i, :cursor => cursor)
+          self.class.with_logging("twitter_client.follower_ids(#{twitter_id}, :cursor => #{cursor})") {
+            twitter_client.follower_ids(twitter_id.to_i, :cursor => cursor)
+          }
         end
       end
       if response
-        self.class.blather("in #{__method__}: cursor = #{cursor}, next_cursor = #{response.next_cursor}")
         if (response.next_cursor != 0)
           # load the next batch of followers
           Delayed::Job.enqueue TwitterJob.new(:load_followers_of, twitter_id, response.next_cursor)
         end
         follower_ids = response.ids.map(&:to_s)
         ActiveRecord::Base.silence do
-          Fact::Statement.create_tuples(twitter_id.to_s, IS_FOLLOWED_BY_SYMBOL, follower_ids, SORTIE_SYMBOL)
+          self.class.with_logging("Fact::Statement.create_tuples for #{follower_ids.count} followers") {
+            Fact::Statement.create_tuples(twitter_id.to_s, IS_FOLLOWED_BY_SYMBOL, follower_ids, SORTIE_SYMBOL)
+          }
         end
       end
     end
 
     def load_friends_of(follower_id, cursor = -1)
-      self.class.blather("#{__method__}(#{follower_id}, #{cursor})")
       response = with_enhanced_calm do
         with_retries(:retry => RETRIED_NETWORK_ERRORS, :ignore => IGNORED_NETWORK_ERRORS) do
-          twitter_client.friend_ids(follower_id.to_i, :cursor => cursor)
+          self.class.with_logging("twitter_client.friend_ids(#{follower_id}, :cursor => #{cursor})") {
+            twitter_client.friend_ids(follower_id.to_i, :cursor => cursor)
+          }
         end
       end
       if response
-        self.class.blather("in #{__method__}: cursor = #{cursor}, next_cursor = #{response.next_cursor}")
         if (response.next_cursor != 0)
           # load the next batch of friends
           Delayed::Job.enqueue TwitterJob.new(:load_friends_of, follower_id, response.next_cursor)
         end
         friend_ids = response.ids.map(&:to_s)
         ActiveRecord::Base.silence do
-          Fact::Statement.create_tuples(friend_ids, IS_FOLLOWED_BY_SYMBOL, follower_id.to_s, SORTIE_SYMBOL)
+          self.class.with_logging("Fact::Statement.create_tuples for #{friend_ids.count} friends") {
+            Fact::Statement.create_tuples(friend_ids, IS_FOLLOWED_BY_SYMBOL, follower_id.to_s, SORTIE_SYMBOL)
+          }
         end
       end
     end

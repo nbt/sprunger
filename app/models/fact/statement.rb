@@ -1,6 +1,9 @@
+require 'update_or_insert'
+
 module Fact
 
   class Statement < ActiveRecord::Base
+    include UpdateOrInsert
     belongs_to :subject, :class_name => "Fact::Symbol"
     belongs_to :predicate, :class_name => "Fact::Symbol"
     belongs_to :target, :class_name => "Fact::Symbol"
@@ -35,12 +38,15 @@ module Fact
       Fact::Statement.transaction do
         # Silliness: we've created full active records but use them
         # only for their fields.  This should be vectorized.
+=begin
         tuples.each do |t| 
           self.where(:subject_id => t.subject_id,
                      :predicate_id => t.predicate_id,
                      :target_id => t.target_id,
                      :context_id => t.context_id).first_or_create!
         end
+=end
+        self.update_or_insert(tuples, :match => ["subject_id", "predicate_id", "target_id", "context_id"], :update => :none)
       end
     end
 

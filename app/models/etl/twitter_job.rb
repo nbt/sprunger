@@ -12,6 +12,7 @@ module ETL
     attr_reader :method, :args
 
     def self.blather(msg)
+      return
       msg = "=== " + msg
       $stderr.puts(msg)
       Rails.logger.debug(msg)

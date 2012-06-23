@@ -11,7 +11,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120615214705) do
+ActiveRecord::Schema.define(:version => 20120623194558) do
 
   create_table "checkpoints", :force => true do |t|
     t.string   "name"
@@ -54,7 +54,7 @@ ActiveRecord::Schema.define(:version => 20120615214705) do
     t.integer "context_id"
   end
 
-  add_index "fact_statements", ["subject_id", "predicate_id", "target_id"], :name => "fact_statement_idx_on_fks", :unique => true
+  add_index "fact_statements", ["subject_id", "predicate_id", "target_id", "context_id"], :name => "fact_statement_idx_on_fks", :unique => true
 
   create_table "fact_symbols", :force => true do |t|
     t.string "name"

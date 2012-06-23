@@ -1,4 +1,4 @@
-# UPDATE tests need unique fields
+# Tests (and design) for created_at and updated_at
 # Reinstate f_time
 # Benchmark tests
 

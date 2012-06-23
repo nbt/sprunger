@@ -17,7 +17,9 @@ class QueueMon
   end
 
   def self.display_job(j)
-    printf("id:%04d attempts:%d handler:%s locked_by:%s\n", j.id, j.attempts, j.handler.gsub("\n","\\n"), j.locked_by)
+    (j.locked_by =~ /pid:(\d*)/) if j.locked_by
+    locking_pid = $1 || " "
+    printf("id:%04d attempts:%d locked by:%6s handler:%s\n", j.id, j.attempts, locking_pid, j.handler.gsub("\n","\\n"))
   end
 
 end

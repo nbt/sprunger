@@ -14,16 +14,18 @@ module ETL
     def self.load_friends_of_followers_of(twitter_name)
       ETL::TwitterProcessor.reset_all
 
-      twitter_id = twitter_id_of(twitter_name)
-      load_followers_of(twitter_id)
-      followers = Fact::Statement.where(:subject_id => Fact::Symbol.to_id(twitter_id.to_s),
-                                        :predicate_id => Fact::Symbol.to_id(IS_FOLLOWED_BY_SYMBOL),
-                                        :context_id => Fact::Symbol.to_id(SORTIE_SYMBOL))
-      followers.count.times do |i|
-        target = followers.offset(i).limit(1).first.target
-        load_friends_of(target.name)
+      ActiveRecord::Base.silence do
+        twitter_id = twitter_id_of(twitter_name)
+        load_followers_of(twitter_id)
+        followers = Fact::Statement.where(:subject_id => Fact::Symbol.to_id(twitter_id.to_s),
+                                          :predicate_id => Fact::Symbol.to_id(IS_FOLLOWED_BY_SYMBOL),
+                                          :context_id => Fact::Symbol.to_id(SORTIE_SYMBOL))
+        followers.count.times do |i|
+          target = followers.offset(i).limit(1).first.target
+          load_friends_of(target.name)
+        end
+        wait_for_delayed_job(0, :load_friends_of_followers)
       end
-      wait_for_delayed_job(0, :load_friends_of_followers)
     end
 
     def self.twitter_id_of(twitter_name)
@@ -36,7 +38,7 @@ module ETL
     end
 
     def self.load_friends_of(twitter_id)
-      wait_for_delayed_job(10, "load_friends_of")
+      wait_for_delayed_job(15, "load_friends_of")
       Delayed::Job.enqueue TwitterJob.new(:load_friends_of, twitter_id)
     end
 

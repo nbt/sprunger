@@ -68,7 +68,9 @@ module UpdateOrInsert
       options = DEFAULT_OPTIONS.merge(options)
       db_adapter = options.delete(:adapter) || ActiveRecord::Base.connection.adapter_name
       loader_class = self.const_get(db_adapter + "Loader")
-      loader_class.new(self, options).update_or_insert(records)
+      self.transaction do
+        loader_class.new(self, options).update_or_insert(records)
+      end
     end
       
   end
@@ -110,22 +112,20 @@ module UpdateOrInsert
                        else
                          raise ArgumentError.new("unrecognized :update option #{options[:update]}")
                        end
-      ar_class.transaction do
-        records.each do |record|
-          matcher = Hash[matched_fields.map {|f| [f, record[f]]}]
-          if matcher.present? && (relation = ar_class.where(matcher)).exists?
-            # matching record exists: update if needed
-            raise RecordNotUnique.new("record already exists: #{relation}") if options[:update] == :error
-            updates = Hash[updated_fields.map {|f| [f, record[f]]}]
-            relation.update_all(updates) unless updates.blank?
-          else
-            # matching record does not exist: create one
-            ar_class.create!(record.attributes)
-          end
+      records.each do |record|
+        matcher = Hash[matched_fields.map {|f| [f, record[f]]}]
+        if matcher.present? && (relation = ar_class.where(matcher)).exists?
+          # matching record exists: update if needed
+          raise RecordNotUnique.new("record already exists: #{relation}") if options[:update] == :error
+          updates = Hash[updated_fields.map {|f| [f, record[f]]}]
+          relation.update_all(updates) unless updates.blank?
+        else
+          # matching record does not exist: create one
+          ar_class.create!(record.attributes)
         end
       end
     end
-
+    
   end
 
   # ================================================================
