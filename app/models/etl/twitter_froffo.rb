@@ -28,6 +28,36 @@ module ETL
       end
     end
 
+    def self.analyze_friends_of_followers_of(a_twitter_name, top_n)
+      ignored, a_twitter_id, a_follower_count = get_twitter_user_info(a_twitter_name)
+
+      # NOTE: this is indescriminite and assumes the DB only contains
+      # entries for followers of twitter_name.  Needs to do a join.
+      relation = Fact::Statement.select("count(*) AS count_all, subject_id AS subject_id").
+        group(:subject_id).
+        order("count_all desc").
+        limit(top_n)
+      relation.each do |r| 
+        b_twitter_id = Fact::Symbol.find(r.subject_id).name.to_i
+        b_twitter_name, ignored, b_follower_count = get_twitter_user_info(b_twitter_id)
+        fof_count = r.count_all.to_i
+
+        print_report(a_twitter_name, a_twitter_id, a_follower_count, b_twitter_name, b_twitter_id, b_follower_count, fof_count)
+      end
+    end
+
+    def self.print_report(a_twitter_name, a_twitter_id, a_follower_count, b_twitter_name, b_twitter_id, b_follower_count, fof_count)
+      printf("%10s, %10s, %7d, %10s, %10s, %7d, %7d\n", 
+             a_twitter_name, a_twitter_id, a_follower_count, b_twitter_name, b_twitter_id, b_follower_count, fof_count)
+    end
+
+    # return [name, id, followers_count, friends_count]
+    def self.get_twitter_user_info(id_or_name)
+      sleep(4.0)                # awful hack: Twitter.user() is rate limited.
+      resp = Twitter.user(id_or_name)
+      [resp["name"], resp["id"], resp["followers_count"], resp["friends_count"]]
+    end
+
     def self.twitter_id_of(twitter_name)
       Twitter.user(twitter_name)["id"]
     end

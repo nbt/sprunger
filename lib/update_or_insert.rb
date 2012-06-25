@@ -44,6 +44,8 @@ module UpdateOrInsert
     #               A value of 'ActiveRecord' disables backing-store
     #               specific commands and uses generic ActiveRecord
     #               methods.
+    # * +:batch_size+: Specifies how many records will be processed
+    #                  per transaction.  Default is adapter specific.
     # NOTES
     #
     # * +update_or_insert+ skips all validations and callbacks unless
@@ -68,9 +70,7 @@ module UpdateOrInsert
       options = DEFAULT_OPTIONS.merge(options)
       db_adapter = options.delete(:adapter) || ActiveRecord::Base.connection.adapter_name
       loader_class = self.const_get(db_adapter + "Loader")
-      self.transaction do
-        loader_class.new(self, options).update_or_insert(records)
-      end
+      loader_class.new(self, options).update_or_insert(records)
     end
       
   end
@@ -313,7 +313,16 @@ EOS
     # => CAST ('2.3' AS double precision)
     # Note: we probably don't need it for all types
     def generate_typecast_value(value, column)
-      "CAST (#{ar_class.quote_value(value)} AS #{column.sql_type})"
+      # efficiency hack: Handle common types w/o calling super-slow
+      # ar_class.quote_value
+      case column.type
+      when :string
+        "'" + value + "'"
+      when :integer
+        value
+      else
+        "CAST (#{ar_class.quote_value(value)} AS #{column.sql_type})"
+      end
     end
 
     def generate_update_where_clause(fields_to_match, subtable_name)

@@ -40,13 +40,14 @@ gem 'mechanize'
 gem 'twitter'
 
 group :development do
-  gem 'ruby-prof'
-  gem 'ruby-debug19', :require => 'ruby-debug'    
+  #  gem 'linecache19', '0.5.13'
+  #  gem 'ruby-prof'
+  #  gem 'ruby-debug19', :require => 'ruby-debug'    
 end
 
 group :test, :development do
   gem "rspec"
-  gem "rspec-rails", "~> 2.4"
+  gem "rspec-rails"
   gem "webrat"
 end
 

@@ -1,4 +1,6 @@
 # Tests (and design) for created_at and updated_at
+# Design and test :batch_size
+# Design and test multiple access / advisory locks
 # Reinstate f_time
 # Benchmark tests
 
