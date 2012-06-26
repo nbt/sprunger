@@ -44,6 +44,9 @@ describe UpdateOrInsert do
     concurrent_update_insert_test(1, 512, 512)
     concurrent_update_insert_test(1, 1024, 1024)
     concurrent_update_insert_test(1, 2048, 2048)
+    concurrent_update_insert_test(1, 4096, 4096)
+    concurrent_update_insert_test(1, 8192, 8192)
+    concurrent_update_insert_test(1, 16384, 16384)
   end
 
   describe 'update and insert in parallel' do

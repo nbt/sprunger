@@ -1,4 +1,13 @@
 module UpdateOrInsert
+  # DESIGN NOTES:
+  #
+  # Restructure this to provide bulk_update() and bulk_create()
+  # methods that semantically beahave like the ActiveRecord
+  # counterparts.
+  #
+  # Honor ActiveRecord#record_timestamps, #default_timezone
+  # 
+  # Don't honor callbacks or validations.
 
   def self.included(base)
     base.extend(ClassMethods)
@@ -92,19 +101,43 @@ module UpdateOrInsert
       @options = options
     end
 
+    def default_batch_size
+      1000
+    end
+
+    def in_batches(records)
+      batch_size = options[:batch_size] || default_batch_size
+      lo = 0
+      while (lo < records.size) do
+        yield(records[lo, batch_size])
+        lo += batch_size
+      end
+    end
+
   end
 
   # ================================================================
   # generic implementation using ActiveRecord methods.  Any backend
   # specific adaptor should produce the same results as this generic
   # implementation.
+
+  # some fodder:
+  #
+  # update() for timestamps [not sure where it's called]
+  # ~/Developer/Topaz/usr/lib/ruby/gems/1.9.1/gems/activerecord-3.2.1/lib/active_record/timestamp.rb
+  #
+  # def update
+  # ~/Developer/Topaz/usr/lib/ruby/gems/1.9.1/gems/activerecord-3.2.1/lib/active_record/persistence.rb
+  #
+  # def arel_attribute_values
+  # ~/Developer/Topaz/usr/lib/ruby/gems/1.9.1/gems/activerecord-3.2.1/lib/active_record/attribute_methods.rb
   
   class ActiveRecordLoader < BaseLoader
 
     def update_or_insert(records)
       matched_fields = Array(options[:match])
       updated_fields = if (options[:update] == :all)
-                         ar_class.column_names - ["id", "created_at"]
+                         ar_class.column_names - ["id", "created_at", "updated_at"]
                        elsif (options[:update] == :none) || (options[:update] == :error) || options[:update].blank?
                          []
                        elsif (options[:update].instance_of?(Array))
@@ -118,7 +151,11 @@ module UpdateOrInsert
           # matching record exists: update if needed
           raise RecordNotUnique.new("record already exists: #{relation}") if options[:update] == :error
           updates = Hash[updated_fields.map {|f| [f, record[f]]}]
-          relation.update_all(updates) unless updates.blank?
+          # Using relation.update_all doesn't trigger callbacks or
+          # validation, nor, evidently, does it modify updated_at
+          # relation.update_all(updates) unless updates.blank?
+          # But we could add updated_at to the updated_fields_map
+          relation.each {|r| r.update_attributes(updates) } unless updates.blank?
         else
           # matching record does not exist: create one
           ar_class.create!(record.attributes)
@@ -135,15 +172,15 @@ module UpdateOrInsert
 
     def update_or_insert(records)
       if options[:match].blank?
-        do_insert_command(records)
+        in_batches(records) {|r| do_insert_command(r) }
       elsif (options[:update] == :all)
-        do_update_insert_command(records, ar_class.column_names - ["id", "created_at"])
+        in_batches(records) {|r| do_update_insert_command(r, ar_class.column_names - ["id", "created_at", "created_on"]) }
       elsif (options[:update].instance_of?(Array))
-        do_update_insert_command(records, options[:update])
+        in_batches(records) {|r| do_update_insert_command(r, options[:update]) }
       elsif options[:update] == :none
-        do_ignore_insert_command(records)
+        in_batches(records) {|r| do_ignore_insert_command(r) }
       elsif options[:update] == :error
-        do_error_insert_command(records)
+        in_batches(records) {|r| do_error_insert_command(r) }
       else
         raise ArgumentError.new("unrecognized :update option #{options[:update]}")
       end
@@ -266,6 +303,7 @@ EOS
 
     # ================
 
+    # only used for inserts
     def generate_table_values(records, column_names)
       records.map {|row| generate_row_values(row, column_names)}.join(",\n")
     end
@@ -275,7 +313,15 @@ EOS
     end
 
     def generate_row_values(record, column_names)
-      "(" + column_names.map {|c| "#{ar_class.quote_value(record[c])}"}.join(",") + ")"
+      quoted_values = column_names.map do |c| 
+        value = if %w(created_at created_on updated_at updated_on).member?(c)
+                  Time.zone.now
+                else
+                  record[c]
+                end
+        "#{ar_class.quote_value(value)}"
+      end
+      "(" + quoted_values.join(",") + ")"
     end
 
     # without table name:
@@ -306,6 +352,9 @@ EOS
     end
 
     def generate_immediate_value(value, column, is_first)
+      if %w(created_at created_on updated_at updated_on).member?(column.name)
+        value = Time.zone.now
+      end
       "#{generate_typecast_value(value, column)}" +
         (is_first ? " AS #{column.name}" : "")
     end

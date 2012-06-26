@@ -9,18 +9,27 @@ require 'update_or_insert'
 
 describe UpdateOrInsert do
   before(:all) do
-    CreateTestRecord.up
+    CreateTables.up
   end
   after(:all) do
-    CreateTestRecord.down
+    CreateTables.down
   end
 
   # ================================================================
-  # test scaffolding and supporting models
+  # define three models: simple w/o timestamps, simple w timestamps,
+  # and 'kitchen sink' to verify type conversions
 
-  class CreateTestRecord < ActiveRecord::Migration
-    # Create a model with all primary types.
+  class CreateTables < ActiveRecord::Migration
     def self.up
+      create_table(:simple_records, :force => true) do |t|
+        t.string :f_string
+        t.integer :f_integer
+      end
+      create_table(:timestamped_records, :force => true) do |t|
+        t.string :f_string
+        t.integer :f_integer
+        t.timestamps
+      end
       create_table(:test_records, :force => true) do |t|
         t.string :f_string
         t.text :f_text
@@ -37,14 +46,40 @@ describe UpdateOrInsert do
     end
     def self.down
       drop_table :test_records
+      drop_table :timestamped_records
+      drop_table :simple_records
     end
+  end
+
+  class SimpleRecord < ActiveRecord::Base
+    include UpdateOrInsert
+  end
+
+  class TimestampedRecord < ActiveRecord::Base
+    include UpdateOrInsert
   end
 
   class TestRecord < ActiveRecord::Base
     include UpdateOrInsert
   end
 
-  def attribute_factory(i, options = {}) 
+  def simple_record_factory(i, options = {})
+    {
+      "f_string" => options.has_key?("f_string") ? options["f_string"] : sprintf("string %04d", i),
+      "f_integer" => options.has_key?("f_integer") ? options["f_integer"] : i,
+    }
+  end
+      
+  def timestamped_record_factory(i, options = {})
+    {
+      "f_string" => options.has_key?("f_string") ? options["f_string"] : sprintf("string %04d", i),
+      "f_integer" => options.has_key?("f_integer") ? options["f_integer"] : i,
+      "created_at" => options.has_key?("created_at") ? options["created_at"] : Time.zone.now,
+      "updated_at" => options.has_key?("updated_at") ? options["updated_at"] : Time.zone.now,
+    }
+  end
+      
+  def test_record_factory(i, options = {}) 
     day_0 = Time.zone.at(0).to_datetime + i
     {
       "f_string" => options.has_key?("f_string") ? options["f_string"] : sprintf("string %04d", i),
@@ -59,14 +94,6 @@ describe UpdateOrInsert do
       # "f_binary" => options.has_key?("f_binary") ? options["f_binary"] : [i].pack("N"),
       "f_boolean" => options.has_key?("f_boolean") ? options["f_boolean"] : i.even?
     }
-  end
-
-  def build_test_record(i, options = {})
-    TestRecord.new(attribute_factory(i, options))
-  end
-
-  def build_test_records(n, options = {})
-    n.times.map {|i| build_test_record(i, options) }
   end
 
   # return a hash of attributes, minus those listed in :except
@@ -107,7 +134,7 @@ describe UpdateOrInsert do
     it 'should store and validate records' do
       n = 20
       
-      attributes = n.times.map {|i| attribute_factory(i)}
+      attributes = n.times.map {|i| test_record_factory(i)}
       unsaved = attributes.map {|attrs| TestRecord.new(attrs)}
       
       # did we create the proper number of records?
@@ -148,8 +175,8 @@ describe UpdateOrInsert do
   describe 'with blank :match' do
     before(:each) do
       # create overlapping records
-      @incumbent_attributes = (0 .. 3).map {|i| attribute_factory(i)}
-      @candidate_attributes = (2 .. 5).map {|i| attribute_factory(i, "f_string" => sprintf("xstring %04d", i))}
+      @incumbent_attributes = (0 .. 3).map {|i| test_record_factory(i)}
+      @candidate_attributes = (2 .. 5).map {|i| test_record_factory(i, "f_string" => sprintf("xstring %04d", i))}
 
       @incumbents = @incumbent_attributes.map {|r| TestRecord.create!(r)}
       @candidates = @candidate_attributes.map {|r| TestRecord.new(r)}
@@ -183,8 +210,8 @@ describe UpdateOrInsert do
     before(:each) do
       @match = "f_integer"
       # create overlapping records
-      @incumbent_attributes = (0 .. 3).map {|i| attribute_factory(i)}
-      @candidate_attributes = (2 .. 5).map {|i| attribute_factory(i, "f_string" => sprintf("xstring %04d", i))}
+      @incumbent_attributes = (0 .. 3).map {|i| test_record_factory(i)}
+      @candidate_attributes = (2 .. 5).map {|i| test_record_factory(i, "f_string" => sprintf("xstring %04d", i))}
 
       @incumbents = @incumbent_attributes.map {|r| TestRecord.create!(r)}
       @candidates = @candidate_attributes.map {|r| TestRecord.new(r)}
@@ -320,8 +347,8 @@ describe UpdateOrInsert do
     before(:each) do
       @match = ["f_integer", "f_decimal"]
       # create overlapping records
-      @incumbent_attributes = (0 .. 3).map {|i| attribute_factory(i)}
-      @candidate_attributes = (2 .. 5).map {|i| attribute_factory(i, "f_string" => sprintf("xstring %04d", i))}
+      @incumbent_attributes = (0 .. 3).map {|i| test_record_factory(i)}
+      @candidate_attributes = (2 .. 5).map {|i| test_record_factory(i, "f_string" => sprintf("xstring %04d", i))}
 
       @incumbents = @incumbent_attributes.map {|r| TestRecord.create!(r)}
       @candidates = @candidate_attributes.map {|r| TestRecord.new(r)}
@@ -453,6 +480,112 @@ describe UpdateOrInsert do
     end           # describe 'with :update => [:f_string, :f_text]' do
   end             # describe 'with multi-field :match' do
 
+  # ================================================================
+=begin
+  describe "mocking tests" do
+    before(:each) do
+      @record = TimestampedRecord.create!(:f_integer => 1)
+      @t0 = Time.parse("2010-01-01 00:00:00 UTC")
+      Time.stub(:now).and_return(@t0)
+    end
 
-  
+    it 'test1' do
+      puts("test1 before:")
+      TimestampedRecord.all.each {|r| p r.inspect}
+      @record.f_integer = 2
+      @record.save!
+      puts("test1 after:")
+      TimestampedRecord.all.each {|r| p r.inspect}
+      1.should == 1
+    end
+
+    it 'test2' do
+      puts("test2 before:")
+      TimestampedRecord.all.each {|r| p r.inspect}
+      # does not update updated_at
+      TimestampedRecord.where(:f_integer => 1).update_all(:f_integer => 2)
+      puts("test2 after:")
+      TimestampedRecord.all.each {|r| p r.inspect}
+      1.should == 1
+    end
+    
+    it 'test3' do
+      puts("test3 before:")
+      TimestampedRecord.all.each {|r| p r.inspect}
+      puts TimestampedRecord.where(:f_integer => 1).select("id").inspect
+      TimestampedRecord.where(:f_integer => 1).first.update_attributes!(:f_integer => 2)
+      puts("test3 after:")
+      TimestampedRecord.all.each {|r| p r.inspect}
+      1.should == 1
+    end
+    
+  end
+=end
+  # ================================================================
+  describe 'timestamp tests' do
+    before(:each) do
+      @match = "f_integer"
+      @incumbent_attributes = [simple_record_factory(0), simple_record_factory(1)]
+      @candidate_attributes = [simple_record_factory(1, "f_string" => "xtring 0001"), simple_record_factory(2, "f_string" => "xtring 0001")]
+
+      @simple_incumbents = @incumbent_attributes.map {|r| SimpleRecord.create!(r)}
+      @simple_candidates = @candidate_attributes.map {|r| SimpleRecord.new(r)}
+
+      @timestamped_incumbents = @incumbent_attributes.map {|r| TimestampedRecord.create!(r)}
+      @timestamped_candidates = @candidate_attributes.map {|r| TimestampedRecord.new(r)}
+
+      @time_zero = Time.parse("2010-01-01 00:00:00 UTC")
+      Time.stub(:now).and_return(@time_zero)
+    end
+
+    describe 'created_at' do
+      
+      describe 'with ActiveRecord adapter' do
+        it 'should be set on newly created records' do
+          lambda {
+            TimestampedRecord.update_or_insert(@timestamped_candidates, :match => @match, :update => :all, :adapter => 'ActiveRecord')
+          }.should change(TimestampedRecord, :count).by(1)
+          TimestampedRecord.find_by_f_integer(0).created_at.should_not eq(@time_zero) 
+          TimestampedRecord.find_by_f_integer(1).created_at.should_not eq(@time_zero)
+          TimestampedRecord.find_by_f_integer(2).created_at.should eq(@time_zero)
+        end
+      end
+      describe 'with default adapter' do
+        it 'should be set on newly created records' do
+          lambda {
+            TimestampedRecord.update_or_insert(@timestamped_candidates, :match => @match, :update => :all)
+          }.should change(TimestampedRecord, :count).by(1)
+          TimestampedRecord.find_by_f_integer(0).created_at.should_not eq(@time_zero) 
+          TimestampedRecord.find_by_f_integer(1).created_at.should_not eq(@time_zero)
+          TimestampedRecord.find_by_f_integer(2).created_at.should eq(@time_zero)
+        end
+      end
+    end
+
+    describe 'updated_at' do
+
+      describe 'with ActiveRecord adapter' do
+        it 'should be set on updated or created records' do
+          lambda {
+            TimestampedRecord.update_or_insert(@timestamped_candidates, :match => @match, :update => :all, :adapter => 'ActiveRecord')
+          }.should change(TimestampedRecord, :count).by(1)
+          TimestampedRecord.find_by_f_integer(0).updated_at.should_not eq(@time_zero)
+          TimestampedRecord.find_by_f_integer(1).updated_at.should eq(@time_zero)
+          TimestampedRecord.find_by_f_integer(2).updated_at.should eq(@time_zero)
+        end
+      end
+      describe 'with default adapter' do
+        it 'should be set on updated or created records' do
+          lambda {
+            TimestampedRecord.update_or_insert(@timestamped_candidates, :match => @match, :update => :all)
+          }.should change(TimestampedRecord, :count).by(1)
+          TimestampedRecord.find_by_f_integer(0).updated_at.should_not eq(@time_zero)
+          TimestampedRecord.find_by_f_integer(1).updated_at.should eq(@time_zero)
+          TimestampedRecord.find_by_f_integer(2).updated_at.should eq(@time_zero)
+        end
+      end
+    end
+    
+  end
+
 end
