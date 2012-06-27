@@ -72,9 +72,12 @@ module ETL
                                         :predicate_id => Fact::Symbol.to_id(IS_FOLLOWED_BY_SYMBOL),
                                         :context_id => Fact::Symbol.to_id(SORTIE_SYMBOL))
       self.with_checkpoint("#{self.class}.#{__method__}(#{twitter_id})", 0) do |checkpoint|
+        start_time = Time.now
+        start_statement_count = Fact::Statement.count
         count = followers.count
         while (checkpoint.state < count)
-          with_logging("loading friends_of(#{twitter_id}) (#{checkpoint.state}/#{count})") {
+          sps = sprintf("%0.3f", (Fact::Statement.count - start_statement_count)/(Time.now - start_time))
+          with_logging("loading friends_of(#{twitter_id}) (#{checkpoint.state}/#{count}, r/s = #{sps})") {
             target = followers.offset(checkpoint.state).limit(1).first.target
             load_friends_of(target.name)
           }

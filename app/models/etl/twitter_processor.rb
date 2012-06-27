@@ -13,6 +13,10 @@ module ETL
 
     IGNORED_NETWORK_ERRORS = [Twitter::Error::Unauthorized]
     IS_FOLLOWED_BY_SYMBOL = Fact::Symbol.intern("is followed by")
+    HAS_FRIENDS_COUNT_SYMBOL = Fact::Symbol.intern("has friends count")
+    HAS_FOLLOWERS_COUNT_SYMBOL = Fact::Symbol.intern("has followers count")
+    HAS_SCREEN_NAME = Fact::Symbol.intern("has screen name")
+    HAS_NAME = Fact::Symbol.intern("has name")
     SORTIE_SYMBOL = Fact::Symbol.intern("Friends of Celebrity sortie 1.1")
 
     def self.blather(msg)
@@ -99,6 +103,26 @@ module ETL
         ActiveRecord::Base.silence do
           self.class.with_logging("Fact::Statement.create_tuples for #{friend_ids.count} friends") {
             Fact::Statement.create_tuples(friend_ids, IS_FOLLOWED_BY_SYMBOL, follower_id.to_s, SORTIE_SYMBOL)
+          }
+        end
+      end
+    end
+
+    def load_user_info(twitter_id)
+      response = with_enhanced_calm do
+        with_retries(:retry => RETRIED_NETWORK_ERRORS, :ignore => IGNORED_NETWORK_ERRORS) do
+          self.class.with_logging("twitter_client.user(#{twitter_id})") {
+            twitter_client.user(twitter_id.to_i)
+          }
+        end
+      end
+      if response
+        ActiveRecord::Base.silence do
+          self.class.with_logging("Fact::Statement.create_tuples for user #{response["screen_name"]} (followers_count = #{response["followers_count"]}") {
+            Fact::Statement.create_tuple(twitter_id.to_s, HAS_NAME_SYMBOL, response["name"].to_s, SORTIE_SYMBOL)
+            Fact::Statement.create_tuple(twitter_id.to_s, HAS_SCREEN_NAME_SYMBOL, response["screen_name"].to_s, SORTIE_SYMBOL)
+            Fact::Statement.create_tuple(twitter_id.to_s, HAS_FRIENDS_COUNT_SYMBOL, response["friends_count"].to_s, SORTIE_SYMBOL)
+            Fact::Statement.create_tuple(twitter_id.to_s, HAS_FOLLOWERS_COUNT_SYMBOL, response["followers_count"].to_s, SORTIE_SYMBOL)
           }
         end
       end
