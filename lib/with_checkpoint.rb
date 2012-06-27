@@ -24,6 +24,7 @@
 
 
 module WithCheckpoint
+  extend self
 
   def with_checkpoint(name, initial_state, &body)
     r = Checkpoint.where(:name => name)

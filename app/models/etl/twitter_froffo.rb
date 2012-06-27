@@ -1,3 +1,5 @@
+require 'with_checkpoint'
+
 module ETL
 
   # Load "all friends of followers of x":
@@ -7,6 +9,7 @@ module ETL
   #   end
 
   class TwitterFrOfFo
+    extend WithCheckpoint
 
     IS_FOLLOWED_BY_SYMBOL = Fact::Symbol.intern("is followed by")
     SORTIE_SYMBOL = Fact::Symbol.intern("Friends of Celebrity sortie 1.1")
@@ -15,16 +18,68 @@ module ETL
       ETL::TwitterProcessor.reset_all
 
       ActiveRecord::Base.silence do
-        twitter_id = twitter_id_of(twitter_name)
-        load_followers_of(twitter_id)
-        followers = Fact::Statement.where(:subject_id => Fact::Symbol.to_id(twitter_id.to_s),
-                                          :predicate_id => Fact::Symbol.to_id(IS_FOLLOWED_BY_SYMBOL),
-                                          :context_id => Fact::Symbol.to_id(SORTIE_SYMBOL))
-        followers.count.times do |i|
-          target = followers.offset(i).limit(1).first.target
-          load_friends_of(target.name)
+        puts("=== #{__method__}[0]")
+        with_checkpoint("#{self.class}.#{__method__}(#{twitter_name}).id", nil) do |id_checkpoint|
+          puts("=== #{__method__}[1]")
+          if (twitter_id = id_checkpoint.state).nil?
+            puts("=== #{__method__}[2]")
+            twitter_id = twitter_id_of(twitter_name)
+            id_checkpoint.state = twitter_id
+          end
+          
+          puts("=== #{__method__}[3]")
+          with_checkpoint("#{self.class}.#{__method__}(#{twitter_name}).step", :step_0) do |step_checkpoint|
+            puts("=== #{__method__}[4] (#{step_checkpoint.state})")
+            while (step_checkpoint.state != :done)
+              puts("=== #{__method__}[5] (#{step_checkpoint.state})")
+              case step_checkpoint.state
+              when :step_0
+                load_followers_of(twitter_id)
+                step_checkpoint.state = :step_1
+              when :step_1
+                load_friends_of_followers_aux(twitter_id)
+                step_checkpoint.state = :step_2
+              when :step_2
+                wait_for_delayed_job(0, "finishing loading friends of followers")
+                step_checkpoint.state = :step_3
+              when :step_3
+                raise ArgumentError.new("need to implement step_3 (checkpoint is still in place).")
+              else
+                raise ArgumentError.new("unknown checkpoint state = #{step_checkpoint.state}")
+              end
+            end
+          end
+          puts("=== #{__method__}[6]")
         end
-        wait_for_delayed_job(0, :load_friends_of_followers)
+        puts("=== #{__method__}[7]")
+      end
+      puts("=== #{__method__}[8]")
+    end
+
+
+    def self.with_logging(msg)
+      t0 = Time.now
+      $stderr.printf("=== %s...", msg)
+      result = yield
+      dt = Time.now - t0
+      $stderr.printf("[%0.3f s]\n", dt)
+      Rails.logger.debug(sprintf("=== %s...[%0.3f s]", msg, dt))
+      result
+    end
+
+    def self.load_friends_of_followers_aux(twitter_id)
+      followers = Fact::Statement.where(:subject_id => Fact::Symbol.to_id(twitter_id.to_s),
+                                        :predicate_id => Fact::Symbol.to_id(IS_FOLLOWED_BY_SYMBOL),
+                                        :context_id => Fact::Symbol.to_id(SORTIE_SYMBOL))
+      self.with_checkpoint("#{self.class}.#{__method__}(#{twitter_id})", 0) do |checkpoint|
+        count = followers.count
+        while (checkpoint.state < count)
+          with_logging("loading friends_of(#{twitter_id}) (#{checkpoint.state}/#{count})") {
+            target = followers.offset(checkpoint.state).limit(1).first.target
+            load_friends_of(target.name)
+          }
+          checkpoint.state += 1
+        end
       end
     end
 
@@ -68,7 +123,9 @@ module ETL
     end
 
     def self.load_friends_of(twitter_id)
-      wait_for_delayed_job(15, "load_friends_of")
+      while (Delayed::Job.count > 15) do
+        sleep(5.0)
+      end
       Delayed::Job.enqueue TwitterJob.new(:load_friends_of, twitter_id)
     end
 

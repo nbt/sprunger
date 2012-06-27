@@ -41,7 +41,7 @@ gem 'twitter'
 
 group :development do
   #  gem 'linecache19', '0.5.13'
-  #  gem 'ruby-prof'
+  gem 'ruby-prof'
   #  gem 'ruby-debug19', :require => 'ruby-debug'    
 end
 
