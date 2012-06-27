@@ -18,6 +18,8 @@ else
   gem 'pg'   # , '0.10.0'
 end
 
+gem 'thin'
+
 gem 'delayed_job_active_record'
 gem 'daemons'
 
@@ -40,6 +42,7 @@ gem 'mechanize'
 gem 'twitter'
 
 group :development do
+  gem 'foreman'
   #  gem 'linecache19', '0.5.13'
   gem 'ruby-prof'
   #  gem 'ruby-debug19', :require => 'ruby-debug'    
