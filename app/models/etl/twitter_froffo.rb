@@ -133,8 +133,11 @@ module ETL
     end
 
     def self.wait_for_delayed_job(queue_size, message)
+      start_time = Time.now
+      start_statement_count = Fact::Statement.count
       while (Delayed::Job.count > queue_size) do
-        print("\nwaiting for #{message} to complete...")
+        sps = sprintf("%0.3f", (Fact::Statement.count - start_statement_count)/(Time.now - start_time))
+        print("\nwaiting for #{message} to complete (r/s = #{sps})...")
         sleep(5.0)
       end
       puts("done!")
