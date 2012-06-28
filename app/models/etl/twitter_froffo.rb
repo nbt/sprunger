@@ -125,8 +125,9 @@ module ETL
       wait_for_delayed_job(0, "load_followers_of")
     end
 
+    MAX_JOB_QUEUE_SIZE = 2000
     def self.load_friends_of(twitter_id)
-      while (Delayed::Job.count > 15) do
+      while (Delayed::Job.count > MAX_JOB_QUEUE_SIZE) do
         sleep(5.0)
       end
       Delayed::Job.enqueue TwitterJob.new(:load_friends_of, twitter_id)
